@@ -7,7 +7,7 @@ const LISTS = new Set(['taskList', 'bulletList', 'orderedList'])
 
 /** Drops empty checklist items / paragraphs so a stray Enter doesn't leave blank rows in the timeline. */
 function trim(n: JSONContent): JSONContent | null {
-  if (n.type === 'text') return n
+  if (n.type === 'text' || n.type === 'horizontalRule') return n // leaves have no children to clean
   if (n.type === 'paragraph') return (n.content ?? []).some((c) => c.type === 'text') ? n : null
   const content = (n.content ?? []).map(trim).filter((c): c is JSONContent => !!c)
   if (n.type === 'doc') return { ...n, content: content.length ? content : [{ type: 'paragraph' }] }

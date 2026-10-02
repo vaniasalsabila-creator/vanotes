@@ -88,6 +88,17 @@ input {
   border-radius: 5px;
 }
 
+/* divider — e.g. between a meeting's details and your notes (type --- to add one) */
+.note-body .ProseMirror hr {
+  border: 0;
+  border-top: 1.5px solid var(--color-line);
+  margin: 1.35em 0 1.1em;
+  cursor: pointer;
+}
+.note-body .ProseMirror hr.ProseMirror-selectednode {
+  border-top-color: var(--color-accent);
+}
+
 /* checklist */
 .note-body ul[data-type='taskList'] {
   list-style: none;

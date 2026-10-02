@@ -96,3 +96,4 @@ export const PanelIcon = icon(
   </>,
 )
 export const LogoutIcon = icon(<path d="M10 5H7a2.5 2.5 0 0 0-2.5 2.5v9A2.5 2.5 0 0 0 7 19h3m4-11 4 4-4 4m4-4H10" />)
+export const DividerIcon = icon(<><path d="M3.5 12h17" /><path d="M8 6.5h8M8 17.5h8" opacity="0.4" /></>)

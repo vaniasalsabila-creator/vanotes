@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useEditorState, type Editor } from '@tiptap/react'
-import { BoldIcon, CheckSquareIcon, ItalicIcon, LinkIcon, ListIcon, UnderlineIcon, XIcon } from './Icons'
+import { BoldIcon, CheckSquareIcon, DividerIcon, ItalicIcon, LinkIcon, ListIcon, UnderlineIcon, XIcon } from './Icons'
 import { cx } from '../lib/utils'
 
 function Btn({ active, label, onClick, children }: { active?: boolean; label: string; onClick: () => void; children: React.ReactNode }) {
@@ -121,6 +121,9 @@ export default function Toolbar({ editor, linkRequest }: { editor: Editor; linkR
       <span className="mx-1 h-5 w-px bg-line" />
       <Btn label="Bullet list" active={s.bullet} onClick={() => editor.chain().focus().toggleBulletList().run()}>
         <ListIcon />
+      </Btn>
+      <Btn label="Divider (or type ---)" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
+        <DividerIcon />
       </Btn>
       <Btn label="Checklist — becomes a task" active={s.task} onClick={() => editor.chain().focus().toggleTaskList().run()}>
         <CheckSquareIcon />

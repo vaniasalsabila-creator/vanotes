@@ -27,7 +27,6 @@ export function buildExtensions(opts: {
       heading: false,
       codeBlock: false,
       blockquote: false,
-      horizontalRule: false,
       link: {
         openOnClick: !opts.editable,
         autolink: true,
