@@ -1,0 +1,289 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-mono: 'Courier Prime', ui-monospace, 'Courier New', monospace;
+  --color-paper: #f6f1e7;
+  --color-side: #eee6d6;
+  --color-card: #fffdf8;
+  --color-pill: #ece4d3;
+  --color-line: #e0d7c5;
+  --color-ink: #2b2622;
+  --color-muted: #8a8178;
+  --color-accent: #b5654a;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #e9d3b8;
+}
+
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- rich text ---------- */
+.note-body .ProseMirror {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.75;
+  outline: none;
+  word-break: break-word;
+}
+.note-body .ProseMirror > * + * {
+  margin-top: 0.35em;
+}
+.note-body .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-muted);
+  opacity: 0.7;
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.note-body .ProseMirror a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.note-body .ProseMirror ul:not([data-type='taskList']),
+.note-body .ProseMirror ol {
+  padding-left: 1.4em;
+}
+.note-body .ProseMirror ul:not([data-type='taskList']) {
+  list-style: disc;
+}
+.note-body .ProseMirror ol {
+  list-style: decimal;
+}
+.note-body .ProseMirror li > p {
+  margin: 0;
+}
+.note-body .ProseMirror code {
+  background: var(--color-pill);
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+}
+
+/* checklist */
+.note-body ul[data-type='taskList'] {
+  list-style: none;
+  padding: 0;
+}
+.note-body ul[data-type='taskList'] ul[data-type='taskList'] {
+  margin-left: 1.5em;
+}
+.note-body ul[data-type='taskList'] > li {
+  display: flex;
+  gap: 0.6em;
+  align-items: flex-start;
+}
+.note-body ul[data-type='taskList'] > li > label {
+  flex: none;
+  margin-top: 0.42em;
+  user-select: none;
+}
+.note-body ul[data-type='taskList'] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+.note-body ul[data-type='taskList'] > li input[type='checkbox'] {
+  appearance: none;
+  width: 1.05em;
+  height: 1.05em;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 5px;
+  background: transparent;
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s var(--ease), transform 0.15s var(--ease);
+}
+.note-body ul[data-type='taskList'] > li input[type='checkbox']:active {
+  transform: scale(0.85);
+}
+.note-body ul[data-type='taskList'] > li input[type='checkbox']:checked {
+  background: var(--color-ink);
+}
+.note-body ul[data-type='taskList'] > li input[type='checkbox']::after {
+  content: '';
+  width: 0.28em;
+  height: 0.5em;
+  border: solid var(--color-paper);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.28s 0.05s var(--ease);
+}
+.note-body ul[data-type='taskList'] > li input[type='checkbox']:checked::after {
+  clip-path: inset(0);
+}
+/* done items grey out and get struck through; unchecked items never carry a decoration */
+.note-body ul[data-type='taskList'] > li > div {
+  transition: color 0.3s;
+}
+.note-body ul[data-type='taskList'] > li[data-checked='true'] > div {
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+.scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+.scroll-hide {
+  scrollbar-width: none;
+}
+
+/* standalone checkbox (Tasks view) — same look as checklist items in notes */
+.check {
+  appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 5px;
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s var(--ease), transform 0.15s var(--ease);
+}
+.check:active {
+  transform: scale(0.82);
+}
+.check:checked {
+  background: var(--color-ink);
+}
+.check::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: solid var(--color-paper);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.28s 0.05s var(--ease);
+}
+.check:checked::after {
+  clip-path: inset(0);
+}
+
+/* ---------- motion ---------- */
+:root {
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.95) translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.6); color: var(--color-accent); }
+  100% { transform: scale(1); }
+}
+@keyframes flash-ring {
+  0% { box-shadow: 0 0 0 0 rgba(181, 101, 74, 0.55); }
+  40% { box-shadow: 0 0 0 5px rgba(181, 101, 74, 0.22); }
+  100% { box-shadow: 0 0 0 0 rgba(181, 101, 74, 0); }
+}
+@keyframes glow-bg {
+  0% { background-color: rgba(181, 101, 74, 0.2); }
+  100% { background-color: rgba(181, 101, 74, 0); }
+}
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes develop {
+  from { opacity: 0; filter: blur(10px) saturate(0.5); transform: scale(1.05) rotate(-1.4deg); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+@keyframes grow-y {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+@keyframes sparkle {
+  0% { opacity: 0; transform: translateY(6px) scale(0.4); }
+  40% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-14px) scale(1); }
+}
+
+.page-enter { animation: rise 0.42s var(--ease) both; }
+.rise-in { animation: rise 0.45s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.anim-fade { animation: fade 0.25s ease-out both; }
+.anim-pop { animation: pop-in 0.18s var(--ease) both; }
+.bump { animation: bump 0.5s var(--ease); display: inline-block; }
+.rise-in.task-new {
+  /* both animations listed, so dropping the glow class never restarts the entrance */
+  animation: rise 0.45s var(--ease) both, glow-bg 1.8s ease-out;
+  animation-delay: calc(var(--i, 0) * 50ms), 0s;
+}
+.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.45s 0.05s var(--ease) forwards; }
+.develop { animation: develop 0.9s var(--ease) both; }
+.rail-grow { transform-origin: top; animation: grow-y 0.8s var(--ease) both; }
+.live { animation: live 1.6s ease-in-out infinite; }
+.sparkle { animation: sparkle 1.6s ease-out infinite; animation-delay: var(--d, 0s); }
+
+/* strikethrough that sweeps across as the task is ticked */
+.strike {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 55% / 0% 1.5px;
+  transition: background-size 0.4s var(--ease), color 0.3s;
+  box-decoration-break: clone;
+}
+.strike[data-done='true'] {
+  background-size: 100% 1.5px;
+  color: var(--color-muted);
+}
+
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes slide-in {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
