@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createProject, db } from '../lib/db'
 import { DUMP_ID } from '../lib/quick'
+import { signOut, useAuth } from '../lib/auth'
 import ProjectDialog from './ProjectDialog'
 import Bump from './Bump'
 import { CalendarIcon, CheckSquareIcon, FeatherIcon, ListIcon, PlusIcon, SearchIcon, XIcon } from './Icons'
@@ -14,6 +15,7 @@ export const useNewProject = () => useContext(NewProjectCtx)
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const newProject = useNewProject()
   const { pathname } = useLocation()
+  const { session } = useAuth()
   const wrap = useRef<HTMLDivElement>(null)
   const [pill, setPill] = useState<{ y: number; h: number } | null>(null)
 
@@ -103,6 +105,17 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           {data && data.projects.length === 0 && <p className="px-3 font-mono text-sm text-muted">no projects yet</p>}
         </nav>
       </div>
+
+      {session?.user.email && (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-line bg-card/60 px-3 py-2">
+          <span className="truncate font-mono text-xs text-muted" title={session.user.email}>
+            {session.user.email}
+          </span>
+          <button onClick={() => void signOut()} className="shrink-0 text-xs text-accent hover:underline">
+            sign out
+          </button>
+        </div>
+      )}
 
       <p className="mt-3 px-3 font-mono text-[11px] leading-6 text-muted">
         <kbd className="rounded border border-line bg-card px-1.5">n</kbd> capture ·{' '}

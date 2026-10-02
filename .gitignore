@@ -4,6 +4,7 @@ dist
 .DS_Store
 .env
 .env.*
+!.env.example
 
 # reference screen recording (135 MB — over GitHub's file limit, and not source)
 *.MP4
