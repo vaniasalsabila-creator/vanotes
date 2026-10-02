@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { PROJECT_COLORS, type Project } from '../lib/db'
 import { PillButton } from './Layout'
+import IconPicker from './IconPicker'
+import ProjectMark from './ProjectMark'
 import { cx } from '../lib/utils'
 
 export default function ProjectDialog({
@@ -10,12 +12,14 @@ export default function ProjectDialog({
   onClose,
 }: {
   project?: Project
-  onSave: (name: string, color: string) => void
+  onSave: (name: string, color: string, icon?: string) => void
   onDelete?: () => void
   onClose: () => void
 }) {
   const [name, setName] = useState(project?.name ?? '')
   const [color, setColor] = useState(project?.color ?? PROJECT_COLORS[0])
+  const [icon, setIcon] = useState<string | undefined>(project?.icon)
+  const [picking, setPicking] = useState(false)
   const ref = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -25,7 +29,7 @@ export default function ProjectDialog({
     return () => window.removeEventListener('keydown', esc)
   }, [onClose])
 
-  const submit = () => name.trim() && onSave(name, color)
+  const submit = () => name.trim() && onSave(name, color, icon)
 
   return (
     <div
@@ -35,15 +39,41 @@ export default function ProjectDialog({
       <div role="dialog" aria-label={project ? 'Edit project' : 'New project'} className="page-enter w-full max-w-md rounded-3xl bg-paper p-6 shadow-xl">
         <h2 className="font-mono text-lg font-bold">{project ? 'edit project' : 'new project'}</h2>
 
-        <input
-          ref={ref}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-          placeholder="project name"
-          maxLength={60}
-          className="mt-5 h-12 w-full rounded-2xl border border-line bg-card px-4 outline-none focus:border-ink"
-        />
+        <div className="mt-5 flex items-center gap-3">
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setPicking((v) => !v)}
+              aria-label="Choose icon"
+              aria-expanded={picking}
+              title="Choose an icon"
+              className="grid h-12 w-12 place-items-center rounded-2xl border border-line bg-card transition-colors hover:border-ink"
+            >
+              <ProjectMark project={{ name: name || '?', color, icon }} size={26} />
+            </button>
+            {picking && (
+              <IconPicker
+                value={icon}
+                color={color}
+                onColor={setColor}
+                onPick={(v, keepOpen) => {
+                  setIcon(v)
+                  if (!keepOpen) setPicking(false)
+                }}
+                onClose={() => setPicking(false)}
+              />
+            )}
+          </div>
+          <input
+            ref={ref}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            placeholder="project name"
+            maxLength={60}
+            className="h-12 min-w-0 flex-1 rounded-2xl border border-line bg-card px-4 outline-none focus:border-ink"
+          />
+        </div>
 
         <div className="mt-5 flex flex-wrap gap-3" role="radiogroup" aria-label="Color">
           {PROJECT_COLORS.map((c) => (

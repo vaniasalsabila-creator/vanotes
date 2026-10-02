@@ -8,6 +8,8 @@ import NoteBody from '../components/NoteBody'
 import Gallery from '../components/Gallery'
 import TaskRows, { type TaskWithSource } from '../components/TaskRows'
 import MoveMenu from '../components/MoveMenu'
+import IconPicker from '../components/IconPicker'
+import ProjectMark from '../components/ProjectMark'
 import { exitItem, reduced } from '../lib/motion'
 import { DUMP_ID } from '../lib/quick'
 import { DotsIcon, DrawCheck, FeatherIcon, TrashIcon } from '../components/Icons'
@@ -96,6 +98,7 @@ export default function ProjectPage() {
   const [params, setParams] = useSearchParams()
   const showTasks = params.get('tab') === 'tasks' // only matters below xl; on wide screens both show
   const [editing, setEditing] = useState(false)
+  const [pickingIcon, setPickingIcon] = useState(false)
 
   // Wrapped so "still loading" (undefined) differs from "no such project" ({ project: null }).
   const loaded = useLiveQuery(async () => ({ project: (await db.projects.get(projectId)) ?? null }), [projectId])
@@ -126,8 +129,33 @@ export default function ProjectPage() {
     <Page wide>
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="h-1.5 w-12 rounded-full" style={{ background: project.color }} />
-          <h1 className="mt-4 break-words font-display text-4xl leading-[1.15] sm:text-5xl sm:leading-[1.15]">{project.name}</h1>
+          {/* click the icon to change it — emoji, line icon, or none */}
+          <div className="relative -ml-1.5 w-fit">
+            <button
+              onClick={() => setPickingIcon((v) => !v)}
+              aria-label="Change project icon"
+              aria-expanded={pickingIcon}
+              title="Change icon"
+              className="group grid place-items-center rounded-2xl p-1.5 transition-colors hover:bg-pill/80"
+            >
+              <span className="transition-transform duration-300 ease-[var(--ease)] group-hover:scale-105">
+                <ProjectMark project={project} size={52} />
+              </span>
+            </button>
+            {pickingIcon && (
+              <IconPicker
+                value={project.icon}
+                color={project.color}
+                onColor={(color) => void updateProject(project.id, { color })}
+                onPick={(icon, keepOpen) => {
+                  void updateProject(project.id, { icon })
+                  if (!keepOpen) setPickingIcon(false)
+                }}
+                onClose={() => setPickingIcon(false)}
+              />
+            )}
+          </div>
+          <h1 className="mt-3 break-words font-display text-4xl leading-[1.15] sm:text-5xl sm:leading-[1.15]">{project.name}</h1>
           <p className="mt-2 font-mono text-sm text-muted">
             {notes?.length ?? 0} {notes?.length === 1 ? 'note' : 'notes'} · {openCount} open
           </p>
@@ -221,8 +249,8 @@ export default function ProjectPage() {
         <ProjectDialog
           project={project}
           onClose={() => setEditing(false)}
-          onSave={async (name, color) => {
-            await updateProject(project.id, { name, color })
+          onSave={async (name, color, icon) => {
+            await updateProject(project.id, { name, color, icon })
             setEditing(false)
           }}
           onDelete={async () => {

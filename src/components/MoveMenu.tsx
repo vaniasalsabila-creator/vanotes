@@ -5,6 +5,7 @@ import { moveNote } from '../lib/quick'
 import { pulseNav } from '../lib/motion'
 import { CornerIcon } from './Icons'
 import { cx } from '../lib/utils'
+import ProjectMark from './ProjectMark'
 
 /** "move to…" popover. Used on timeline cards and in the editor. */
 export default function MoveMenu({ noteId, currentProjectId, className, label = true, beforeMove }: { noteId: string; currentProjectId: string; className?: string; label?: boolean; beforeMove?: () => Promise<void> }) {
@@ -48,7 +49,7 @@ export default function MoveMenu({ noteId, currentProjectId, className, label = 
                   }}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-paper"
                 >
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-[4px]" style={{ background: p.color }} />
+                  <ProjectMark project={p} size={18} />
                   <span className="truncate">{p.name}</span>
                 </button>
               </li>

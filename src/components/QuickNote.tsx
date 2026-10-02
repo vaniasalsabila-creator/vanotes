@@ -6,6 +6,7 @@ import { DUMP_COLOR, DUMP_ID, DUMP_NAME, quickCapture } from '../lib/quick'
 import { flySlip, navEl, reduced } from '../lib/motion'
 import { ArrowUpIcon, ChevronIcon, DrawCheck, FolderIcon } from './Icons'
 import { cx } from '../lib/utils'
+import ProjectMark from './ProjectMark'
 
 const LINE = 32
 const MIN_LINES = 3
@@ -42,7 +43,8 @@ export default function QuickNote() {
   const projects = useLiveQuery(() => db.projects.orderBy('updatedAt').reverse().toArray())
   const dumpCount = useLiveQuery(() => db.notes.where('projectId').equals(DUMP_ID).count(), [], 0)
   const real = projects?.filter((p) => p.id !== DUMP_ID) ?? []
-  const current = target === DUMP_ID ? { name: DUMP_NAME, color: DUMP_COLOR } : projects?.find((p) => p.id === target)
+  const dump = projects?.find((p) => p.id === DUMP_ID)
+  const current: { name: string; color: string; icon?: string } | undefined = target === DUMP_ID ? { name: DUMP_NAME, color: DUMP_COLOR, icon: dump?.icon } : projects?.find((p) => p.id === target)
   const suggestion = target === DUMP_ID && text.trim().length > 2 ? real.find((p) => mentions(p.name, text)) : undefined
 
   useEffect(() => {
@@ -183,7 +185,7 @@ export default function QuickNote() {
                   className="inline-flex h-9 max-w-[55vw] items-center gap-2 rounded-xl bg-pill/70 pl-3 pr-2 text-sm transition-colors hover:bg-pill"
                 >
                   <FolderIcon />
-                  <span className="h-2 w-2 shrink-0 rounded-[3px] transition-colors" style={{ background: current?.color ?? DUMP_COLOR }} />
+                  <ProjectMark project={current ?? { name: DUMP_NAME, color: DUMP_COLOR }} size={16} />
                   <span className="truncate">{current?.name ?? DUMP_NAME}</span>
                   <ChevronIcon />
                 </button>
@@ -191,7 +193,7 @@ export default function QuickNote() {
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setMenu(false)} />
                     <ul role="listbox" className="anim-pop absolute bottom-full left-0 z-50 mb-2 max-h-72 w-64 origin-bottom-left overflow-y-auto rounded-2xl border border-line bg-card p-1.5 shadow-[0_16px_40px_-12px_rgba(43,38,34,0.4)]">
-                      {[{ id: DUMP_ID, name: DUMP_NAME, color: DUMP_COLOR, hint: 'sort it later' }, ...real.map((p) => ({ ...p, hint: '' }))].map((p) => (
+                      {[{ id: DUMP_ID, name: DUMP_NAME, color: DUMP_COLOR, icon: dump?.icon, hint: 'sort it later' }, ...real.map((p) => ({ ...p, hint: '' }))].map((p) => (
                         <li key={p.id} role="option" aria-selected={p.id === target}>
                           <button
                             onClick={() => {
@@ -201,7 +203,7 @@ export default function QuickNote() {
                             }}
                             className={cx('flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-paper', p.id === target && 'bg-paper')}
                           >
-                            <span className="h-2.5 w-2.5 shrink-0 rounded-[4px]" style={{ background: p.color }} />
+                            <ProjectMark project={p} size={18} />
                             <span className="truncate">{p.name}</span>
                             {p.hint && <span className="ml-auto text-xs text-muted">{p.hint}</span>}
                           </button>

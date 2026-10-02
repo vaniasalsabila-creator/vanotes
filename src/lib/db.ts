@@ -5,6 +5,8 @@ export interface Project {
   id: string
   name: string
   color: string
+  /** `emoji:🔥` or `icon:rocket`. Unset = a letter chip in the project colour. */
+  icon?: string
   createdAt: number
   updatedAt: number
 }
@@ -97,14 +99,14 @@ export const PROJECT_COLORS = [
   '#6b625a', // stone
 ]
 
-export async function createProject(name: string, color: string) {
+export async function createProject(name: string, color: string, icon?: string) {
   const now = Date.now()
-  const p: Project = { id: uid(), name: name.trim(), color, createdAt: now, updatedAt: now }
+  const p: Project = { id: uid(), name: name.trim(), color, ...(icon && { icon }), createdAt: now, updatedAt: now }
   await db.projects.add(p)
   return p
 }
 
-export async function updateProject(id: string, patch: Partial<Pick<Project, 'name' | 'color'>>) {
+export async function updateProject(id: string, patch: Partial<Pick<Project, 'name' | 'color' | 'icon'>>) {
   await db.projects.update(id, { ...patch, updatedAt: Date.now() })
 }
 

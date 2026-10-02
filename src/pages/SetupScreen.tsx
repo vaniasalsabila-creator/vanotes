@@ -1,9 +1,11 @@
+import Logo from '../components/Logo'
+
 /** Shown instead of the login page until the two Supabase values exist in .env.local. */
 export default function SetupScreen() {
   return (
     <div className="grid min-h-screen place-items-center px-5 py-10">
       <div className="page-enter w-full max-w-xl rounded-[26px] border border-line bg-card p-8 shadow-[0_24px_40px_-30px_rgba(43,38,34,0.6)]">
-        <p className="font-display text-2xl italic">vanotes</p>
+        <Logo size={48} />
         <h1 className="mt-6 font-display text-3xl">connect supabase to sign in.</h1>
         <p className="mt-2 font-mono text-sm leading-relaxed text-muted">
           the app needs your project’s URL and public key. nothing is wrong with your notes — they’re safe in this browser.

@@ -8,6 +8,7 @@ import QuickNote from '../components/QuickNote'
 import { useTickDelay } from '../components/TaskCheck'
 import { setTaskDone } from '../lib/tasks'
 import { cx, dayLabel, shortDate, timeLabel } from '../lib/utils'
+import ProjectMark from '../components/ProjectMark'
 
 const DAY = 86_400_000
 const startOfDay = (ts: number) => new Date(ts).setHours(0, 0, 0, 0)
@@ -230,7 +231,10 @@ function DeskBody({ data }: { data: DeskData }) {
                   ))}
                   <div className="relative z-10 h-3 w-16 rounded-t-lg transition-all duration-300 ease-[var(--ease)] group-hover:w-24" style={{ background: p.color }} />
                   <div className="relative z-10 rounded-b-2xl rounded-tr-2xl border border-line bg-card p-5 transition duration-300 ease-[var(--ease)] group-hover:shadow-[0_12px_28px_-18px_rgba(43,38,34,0.5)]">
-                    <h3 className="font-display text-xl leading-snug">{p.name}</h3>
+                    <h3 className="flex items-center gap-2.5 font-display text-xl leading-snug">
+                      <ProjectMark project={p} size={24} />
+                      <span className="min-w-0 break-words">{p.name}</span>
+                    </h3>
                     <p className="mt-6 font-mono text-xs text-muted">
                       {p.noteCount} {p.noteCount === 1 ? 'note' : 'notes'} · {p.openTasks} open
                     </p>

@@ -6,6 +6,7 @@ import { createNoteFromEvent } from '../lib/calendar'
 import { cx, eventRange } from '../lib/utils'
 import { useNewProject } from './Layout'
 import { VideoIcon, XIcon } from './Icons'
+import ProjectMark from './ProjectMark'
 
 /** Re-renders every `ms`, so "in 8 min" stays honest while the page is open. */
 function useNow(ms = 30_000) {
@@ -69,7 +70,7 @@ function ProjectPicker({ event, onClose }: { event: CalEvent; onClose: () => voi
           {sorted?.map((p) => (
             <li key={p.id}>
               <button onClick={() => void pick(p.id)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-card">
-                <span className="h-3 w-3 rounded-[4px]" style={{ background: p.color }} />
+                <ProjectMark project={p} size={18} />
                 {p.name}
               </button>
             </li>

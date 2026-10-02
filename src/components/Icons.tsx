@@ -10,6 +10,7 @@ const base = {
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
   'aria-hidden': true,
+  className: 'shrink-0', // never let a flex row squash an icon
 }
 
 const icon = (path: ReactNode) => () => <svg {...base}>{path}</svg>
@@ -88,3 +89,10 @@ export function DrawCheck({ size = 18 }: { size?: number }) {
     </svg>
   )
 }
+export const PanelIcon = icon(
+  <>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="3.5" />
+    <path d="M9.5 4.5v15" />
+  </>,
+)
+export const LogoutIcon = icon(<path d="M10 5H7a2.5 2.5 0 0 0-2.5 2.5v9A2.5 2.5 0 0 0 7 19h3m4-11 4 4-4 4m4-4H10" />)

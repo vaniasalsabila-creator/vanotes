@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db'
 import { Page } from '../components/Layout'
 import TaskRows, { type TaskWithSource } from '../components/TaskRows'
+import ProjectMark from '../components/ProjectMark'
 
 export default function AllTasks() {
   const data = useLiveQuery(async () => {
@@ -30,7 +31,7 @@ export default function AllTasks() {
         {data?.map(({ project, tasks }) => (
           <section key={project.id}>
             <h2 className="flex items-center gap-2.5 border-b border-line pb-2 font-display text-xl">
-              <span className="h-3 w-3 rounded-[4px]" style={{ background: project.color }} />
+              <ProjectMark project={project} size={22} />
               {project.name}
             </h2>
             <TaskRows tasks={tasks} showProject={false} />

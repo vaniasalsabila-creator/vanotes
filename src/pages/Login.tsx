@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { friendlyAuthError, useAuth } from '../lib/auth'
 import { DrawCheck } from '../components/Icons'
+import Logo from '../components/Logo'
 import SetupScreen from './SetupScreen'
 import { cx } from '../lib/utils'
 
@@ -55,7 +56,7 @@ export default function Login() {
   return (
     <div className="grid min-h-screen place-items-center px-5 py-10">
       <div className="page-enter w-full max-w-sm">
-        <p className="text-center font-display text-3xl italic tracking-tight">vanotes</p>
+        <div className="flex justify-center"><Logo size={60} /></div>
 
         <div className="relative isolate mt-8">
           <span aria-hidden className="absolute inset-x-3 -bottom-1.5 -z-10 h-full rounded-[26px] border border-line bg-card" />

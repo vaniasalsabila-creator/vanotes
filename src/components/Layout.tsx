@@ -6,13 +6,27 @@ import { DUMP_ID } from '../lib/quick'
 import { signOut, useAuth } from '../lib/auth'
 import ProjectDialog from './ProjectDialog'
 import Bump from './Bump'
-import { CalendarIcon, CheckSquareIcon, FeatherIcon, ListIcon, PlusIcon, SearchIcon, XIcon } from './Icons'
+import Logo from './Logo'
+import { CalendarIcon, CheckSquareIcon, FeatherIcon, ListIcon, LogoutIcon, PanelIcon, PlusIcon, SearchIcon, XIcon } from './Icons'
 import { cx } from '../lib/utils'
+import ProjectMark from './ProjectMark'
 
 const NewProjectCtx = createContext<() => void>(() => {})
 export const useNewProject = () => useContext(NewProjectCtx)
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+const RAIL = '5.125rem' // icons sit at the same x in both states, so collapsing only narrows + clips
+const FULL = '16.5rem'
+const STORE_KEY = 'vanotes:sidebar-collapsed'
+
+function SidebarContent({
+  onNavigate,
+  collapsed = false,
+  onToggle,
+}: {
+  onNavigate?: () => void
+  collapsed?: boolean
+  onToggle?: () => void
+}) {
   const newProject = useNewProject()
   const { pathname } = useLocation()
   const { session } = useAuth()
@@ -44,7 +58,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     const ar = a.getBoundingClientRect()
     setPill({ y: ar.top - wr.top + w.scrollTop, h: ar.height })
   }, [])
-  useLayoutEffect(measure, [measure, pathname, data?.projects.length])
+  useLayoutEffect(measure, [measure, pathname, data?.projects.length, collapsed])
   useEffect(() => {
     const el = wrap.current
     if (!el) return
@@ -54,15 +68,37 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   }, [measure])
 
   const item = () =>
-    'relative z-10 flex items-center gap-3 rounded-xl px-3 py-2 text-[15px] transition-colors hover:bg-paper/60 aria-[current=page]:font-medium aria-[current=page]:hover:bg-transparent'
+    'relative z-10 flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl px-3 py-2 text-[15px] transition-colors hover:bg-paper/60 aria-[current=page]:font-medium aria-[current=page]:hover:bg-transparent'
 
   return (
     <div className="flex h-full flex-col" onClick={onNavigate}>
-      <Link to="/" className="px-3 font-display text-2xl italic tracking-tight">
-        vanotes
-      </Link>
+      {/* header: logo, with the collapse toggle beside it (below it in the slim rail, where there's no room) */}
+      <div className={cx('relative shrink-0 transition-[height] duration-300 ease-[var(--ease)]', onToggle && collapsed ? 'h-[84px]' : 'h-9')}>
+        <Link
+          to="/"
+          aria-label="vanotes — desk"
+          title="vanotes"
+          className="absolute left-[5px] top-0.5 block rounded-[10px] transition-transform duration-300 ease-[var(--ease)] hover:-rotate-6"
+        >
+          <Logo size={32} />
+        </Link>
+        {onToggle && (
+          <button
+            onClick={onToggle}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+            title={collapsed ? 'Expand sidebar  [' : 'Collapse sidebar  ['}
+            className={cx(
+              'absolute grid h-9 place-items-center rounded-xl text-muted transition-colors hover:bg-paper hover:text-ink',
+              collapsed ? 'left-0 top-[46px] w-full' : 'right-0 top-0 w-9',
+            )}
+          >
+            <PanelIcon />
+          </button>
+        )}
+      </div>
 
-      <div ref={wrap} className="scroll-hide relative mt-8 min-h-0 flex-1 overflow-y-auto">
+      <div ref={wrap} className="scroll-hide relative mt-8 min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <span
           aria-hidden
           className="absolute inset-x-0 top-0 rounded-xl bg-card shadow-[0_1px_0_var(--color-line)] ring-1 ring-line transition-[transform,height] duration-[380ms] ease-[var(--ease)]"
@@ -70,57 +106,77 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         />
 
         <nav className="space-y-0.5">
-          <NavLink to="/" end className={item}>
+          <NavLink to="/" end className={item} title={collapsed ? 'desk' : undefined}>
             <FeatherIcon /> desk
           </NavLink>
-          <NavLink to="/tasks" className={item}>
+          <NavLink to="/tasks" className={item} title={collapsed ? 'all tasks' : undefined}>
             <CheckSquareIcon /> all tasks
             {!!data?.total && <Bump value={data.total} className="ml-auto font-mono text-xs text-muted" />}
+            {collapsed && !!data?.total && <span aria-hidden className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent ring-2 ring-side" />}
           </NavLink>
-          <NavLink to="/calendar" className={item}>
+          <NavLink to="/calendar" className={item} title={collapsed ? 'calendar' : undefined}>
             <CalendarIcon /> calendar
           </NavLink>
-          <NavLink to="/search" className={item}>
+          <NavLink to="/search" className={item} title={collapsed ? 'search' : undefined}>
             <SearchIcon /> search
           </NavLink>
         </nav>
 
-        <div className="mt-8 flex items-center justify-between px-3">
-          <h2 className="text-[11px] uppercase tracking-[0.22em] text-muted">projects</h2>
-          <button onClick={newProject} aria-label="New project" className="grid h-6 w-6 place-items-center rounded-md text-muted hover:bg-paper hover:text-ink">
+        <div className="relative mt-8 flex items-center justify-between px-3">
+          <h2 className={cx('whitespace-nowrap text-[11px] uppercase tracking-[0.22em] text-muted transition-opacity duration-200', collapsed && 'opacity-0')}>projects</h2>
+          <button
+            onClick={newProject}
+            aria-label="New project"
+            tabIndex={collapsed ? -1 : 0}
+            className={cx('grid h-6 w-6 place-items-center rounded-md text-muted transition-opacity duration-200 hover:bg-paper hover:text-ink', collapsed && 'pointer-events-none opacity-0')}
+          >
             <PlusIcon />
           </button>
+          <span aria-hidden className={cx('pointer-events-none absolute inset-x-3 top-1/2 border-t border-line transition-opacity duration-300', collapsed ? 'opacity-100' : 'opacity-0')} />
         </div>
         <nav className="mt-2 space-y-0.5 pb-2">
           {data?.projects.map((p) => {
             const n = p.id === DUMP_ID ? data.dumpNotes : (data.open.get(p.id) ?? 0)
             return (
-              <NavLink key={p.id} to={`/p/${p.id}`} data-nav-project={p.id} className={item}>
-                <span className="h-2.5 w-2.5 shrink-0 rounded-[4px]" style={{ background: p.color }} />
+              <NavLink key={p.id} to={`/p/${p.id}`} data-nav-project={p.id} className={item} title={collapsed ? p.name : undefined}>
+                <ProjectMark project={p} size={18} />
                 <span className="truncate">{p.name}</span>
                 {n > 0 && <Bump value={n} className="ml-auto font-mono text-xs text-muted" />}
+                {collapsed && n > 0 && <span aria-hidden className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent ring-2 ring-side" />}
               </NavLink>
             )
           })}
-          {data && data.projects.length === 0 && <p className="px-3 font-mono text-sm text-muted">no projects yet</p>}
+          {data && data.projects.length === 0 && <p className={cx('whitespace-nowrap px-3 font-mono text-sm text-muted transition-opacity', collapsed && 'opacity-0')}>no projects yet</p>}
         </nav>
       </div>
 
-      {session?.user.email && (
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-line bg-card/60 px-3 py-2">
-          <span className="truncate font-mono text-xs text-muted" title={session.user.email}>
-            {session.user.email}
-          </span>
-          <button onClick={() => void signOut()} className="shrink-0 text-xs text-accent hover:underline">
-            sign out
+      {session?.user.email &&
+        (collapsed ? (
+          <button
+            onClick={() => void signOut()}
+            title={`Sign out (${session.user.email})`}
+            aria-label="Sign out"
+            className={cx(item(), 'mt-3 text-accent')}
+          >
+            <LogoutIcon />
           </button>
-        </div>
-      )}
+        ) : (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-line bg-card/60 px-3 py-2">
+            <span className="truncate font-mono text-xs text-muted" title={session.user.email}>
+              {session.user.email}
+            </span>
+            <button onClick={() => void signOut()} className="shrink-0 text-xs text-accent hover:underline">
+              sign out
+            </button>
+          </div>
+        ))}
 
-      <p className="mt-3 px-3 font-mono text-[11px] leading-6 text-muted">
-        <kbd className="rounded border border-line bg-card px-1.5">n</kbd> capture ·{' '}
-        <kbd className="rounded border border-line bg-card px-1.5">/</kbd> search
-      </p>
+      {!collapsed && (
+        <p className="mt-2 px-3 font-mono text-[11px] leading-6 text-muted">
+          <kbd className="rounded border border-line bg-card px-1.5">n</kbd> capture ·{' '}
+          <kbd className="rounded border border-line bg-card px-1.5">/</kbd> search
+        </p>
+      )}
     </div>
   )
 }
@@ -129,10 +185,28 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 export function Shell() {
   const [creating, setCreating] = useState(false)
   const [drawer, setDrawer] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(STORE_KEY) === '1'
+    } catch {
+      return false // storage can be unavailable (private windows); the sidebar just starts open
+    }
+  })
   const nav = useNavigate()
   const { pathname } = useLocation()
 
   useEffect(() => setDrawer(false), [pathname])
+
+  const toggleSidebar = useCallback(() => {
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem(STORE_KEY, c ? '0' : '1')
+      } catch {
+        /* per-viewer convenience only */
+      }
+      return !c
+    })
+  }, [])
 
   // n = capture, / = search (ignored while typing)
   useEffect(() => {
@@ -146,23 +220,29 @@ export function Shell() {
       } else if (e.key === '/') {
         e.preventDefault()
         nav('/search')
+      } else if (e.key === '[') {
+        e.preventDefault()
+        toggleSidebar()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [nav, pathname])
+  }, [nav, pathname, toggleSidebar])
 
   return (
     <NewProjectCtx.Provider value={() => setCreating(true)}>
-      <div className="min-h-screen lg:grid lg:grid-cols-[16.5rem_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-screen border-r border-line bg-side p-5 lg:block">
-          <SidebarContent />
+      <div
+        className="min-h-screen transition-[grid-template-columns] duration-300 ease-[var(--ease)] lg:grid"
+        style={{ gridTemplateColumns: `${collapsed ? RAIL : FULL} minmax(0,1fr)` }}
+      >
+        <aside className="sticky top-0 hidden h-screen overflow-hidden border-r border-line bg-side p-5 lg:block">
+          <SidebarContent collapsed={collapsed} onToggle={toggleSidebar} />
         </aside>
 
         {/* mobile / tablet top bar */}
         <div className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-paper/90 px-4 py-3 backdrop-blur lg:hidden">
-          <Link to="/" className="font-display text-xl italic">
-            vanotes
+          <Link to="/" aria-label="vanotes — desk" className="block rounded-[10px]">
+            <Logo size={34} />
           </Link>
           <button onClick={() => setDrawer(true)} aria-label="Menu" className="grid h-10 w-10 place-items-center rounded-xl bg-pill/70">
             <ListIcon />
@@ -188,8 +268,8 @@ export function Shell() {
       {creating && (
         <ProjectDialog
           onClose={() => setCreating(false)}
-          onSave={async (name, color) => {
-            const p = await createProject(name, color)
+          onSave={async (name, color, icon) => {
+            const p = await createProject(name, color, icon)
             setCreating(false)
             nav(`/p/${p.id}`)
           }}
