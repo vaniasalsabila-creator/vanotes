@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { NoteImage } from '../lib/db'
 import { cx, useObjectUrl } from '../lib/utils'
 import { XIcon } from './Icons'
+import Portal from './Portal'
 
 function Thumb({ img, className, onOpen, onRemove }: { img: NoteImage; className?: string; onOpen: () => void; onRemove?: () => void }) {
   const url = useObjectUrl(img.blob)
@@ -42,7 +43,14 @@ function Lightbox({ images, index, onClose }: { images: NoteImage[]; index: numb
   }, [images.length, onClose])
 
   return (
-    <div className="anim-fade fixed inset-0 z-50 flex flex-col items-center justify-center bg-ink/85 p-4" onClick={onClose}>
+    <Portal>
+    <div
+      className="anim-fade fixed inset-0 z-50 flex flex-col items-center justify-center bg-ink/85 p-4"
+      onClick={(e) => {
+        e.stopPropagation() // React events cross portals: don't let this click "open" the note card behind
+        onClose()
+      }}
+    >
       <button className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-paper/15 text-paper" aria-label="Close">
         <XIcon />
       </button>
@@ -53,6 +61,7 @@ function Lightbox({ images, index, onClose }: { images: NoteImage[]; index: numb
         </p>
       )}
     </div>
+    </Portal>
   )
 }
 

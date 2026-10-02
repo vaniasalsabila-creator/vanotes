@@ -7,6 +7,7 @@ import { cx, eventRange } from '../lib/utils'
 import { useNewProject } from './Layout'
 import { VideoIcon, XIcon } from './Icons'
 import ProjectMark from './ProjectMark'
+import Portal from './Portal'
 
 /** Re-renders every `ms`, so "in 8 min" stays honest while the page is open. */
 function useNow(ms = 30_000) {
@@ -54,6 +55,7 @@ function ProjectPicker({ event, onClose }: { event: CalEvent; onClose: () => voi
   }
 
   return (
+    <Portal>
     <div className="anim-fade fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-4 backdrop-blur-[2px] sm:items-center" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-label="Choose project" className="page-enter w-full max-w-sm rounded-3xl bg-paper p-6 shadow-xl">
         <div className="flex items-start justify-between gap-3">
@@ -83,6 +85,7 @@ function ProjectPicker({ event, onClose }: { event: CalEvent; onClose: () => voi
         )}
       </div>
     </div>
+    </Portal>
   )
 }
 

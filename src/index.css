@@ -253,14 +253,14 @@ input {
   100% { opacity: 0; transform: translateY(-14px) scale(1); }
 }
 
-.page-enter { animation: rise 0.42s var(--ease) both; }
-.rise-in { animation: rise 0.45s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.page-enter { animation: rise 0.42s var(--ease) backwards; } /* 'backwards' (not 'both'): once finished, no lingering stacking context to trap pop-ups */
+.rise-in { animation: rise 0.45s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 50ms); }
 .anim-fade { animation: fade 0.25s ease-out both; }
 .anim-pop { animation: pop-in 0.18s var(--ease) both; }
 .bump { animation: bump 0.5s var(--ease); display: inline-block; }
 .rise-in.task-new {
   /* both animations listed, so dropping the glow class never restarts the entrance */
-  animation: rise 0.45s var(--ease) both, glow-bg 1.8s ease-out;
+  animation: rise 0.45s var(--ease) backwards, glow-bg 1.8s ease-out;
   animation-delay: calc(var(--i, 0) * 50ms), 0s;
 }
 .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.45s 0.05s var(--ease) forwards; }

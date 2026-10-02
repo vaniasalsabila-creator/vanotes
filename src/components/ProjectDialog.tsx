@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PROJECT_COLORS, type Project } from '../lib/db'
 import { PillButton } from './Layout'
 import IconPicker from './IconPicker'
+import Portal from './Portal'
 import ProjectMark from './ProjectMark'
 import { cx } from '../lib/utils'
 
@@ -32,6 +33,7 @@ export default function ProjectDialog({
   const submit = () => name.trim() && onSave(name, color, icon)
 
   return (
+    <Portal>
     <div
       className="anim-fade fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-4 backdrop-blur-[2px] sm:items-center"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
@@ -112,5 +114,6 @@ export default function ProjectDialog({
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
