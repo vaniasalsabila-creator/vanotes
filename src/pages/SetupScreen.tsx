@@ -13,6 +13,9 @@ export default function SetupScreen() {
         <ol className="mt-6 list-decimal space-y-2 pl-5 font-mono text-sm leading-relaxed">
           <li>in Supabase: Project Settings → API. copy the <b>Project URL</b> and the <b>anon / publishable key</b>.</li>
           <li>
+            in the SQL editor, paste and run <code className="rounded bg-pill px-1.5">supabase/schema.sql</code> so notes can be saved to your account.
+          </li>
+          <li>
             in the project folder, copy <code className="rounded bg-pill px-1.5">.env.example</code> to{' '}
             <code className="rounded bg-pill px-1.5">.env.local</code> and paste both values in.
           </li>

@@ -86,7 +86,7 @@ export default function Login() {
                   {mode === 'signin' ? 'welcome back.' : 'create your account.'}
                 </h1>
                 <p className="mt-1 font-mono text-sm text-muted">
-                  {mode === 'signin' ? 'sign in to open your notes.' : 'one email and a password is all it takes.'}
+                  {mode === 'signin' ? 'sign in to open notes saved to this account.' : 'one email and a password is all it takes.'}
                 </p>
 
                 <label className="mt-6 block text-sm">

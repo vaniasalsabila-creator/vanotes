@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { createProject, db } from '../lib/db'
 import { DUMP_ID } from '../lib/quick'
 import { signOut, useAuth } from '../lib/auth'
+import { useSyncStatus } from '../lib/sync-boot'
 import ProjectDialog from './ProjectDialog'
 import Bump from './Bump'
 import Logo from './Logo'
@@ -30,6 +31,7 @@ function SidebarContent({
   const newProject = useNewProject()
   const { pathname } = useLocation()
   const { session } = useAuth()
+  const sync = useSyncStatus()
   const wrap = useRef<HTMLDivElement>(null)
   const [pill, setPill] = useState<{ y: number; h: number } | null>(null)
 
@@ -162,8 +164,13 @@ function SidebarContent({
           </button>
         ) : (
           <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-line bg-card/60 px-3 py-2">
-            <span className="truncate font-mono text-xs text-muted" title={session.user.email}>
-              {session.user.email}
+            <span className="min-w-0">
+              <span className="block truncate font-mono text-xs text-muted" title={session.user.email}>
+                {session.user.email}
+              </span>
+              <span className="font-mono text-[10px] text-muted/80">
+                {sync === 'syncing' ? 'saving to account…' : sync === 'error' ? 'couldn’t sync — will retry' : 'saved to your account'}
+              </span>
             </span>
             <button onClick={() => void signOut()} className="shrink-0 text-xs text-accent hover:underline">
               sign out

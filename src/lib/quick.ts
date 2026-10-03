@@ -75,7 +75,7 @@ export async function quickCapture(text: string, projectId: string = DUMP_ID): P
 /** Moves a note, and the tasks that came from it, to another project. */
 export async function moveNote(noteId: string, projectId: string) {
   await db.transaction('rw', db.notes, db.tasks, db.projects, async () => {
-    await db.notes.update(noteId, { projectId })
+    await db.notes.update(noteId, { projectId, updatedAt: Date.now() })
     await db.tasks.where('noteId').equals(noteId).modify({ projectId })
     await db.projects.update(projectId, { updatedAt: Date.now() })
   })
