@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db'
 import { Page, useNewProject } from '../components/Layout'
@@ -7,6 +8,7 @@ import EventRow from '../components/EventRow'
 import QuickNote from '../components/QuickNote'
 import { useTickDelay } from '../components/TaskCheck'
 import { setTaskDone } from '../lib/tasks'
+import { firstNameFrom, setDisplayName, useAuth } from '../lib/auth'
 import { cx, dayLabel, shortDate, timeLabel } from '../lib/utils'
 import ProjectMark from '../components/ProjectMark'
 
@@ -125,8 +127,63 @@ function UpNextRow({ t, index }: { t: DeskData['upNext'][number]; index: number 
   )
 }
 
+/** The name in "good afternoon, vania." — click it to change what the greeting calls you. */
+function GreetingName({ name }: { name: string }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(name)
+  const [shown, setShown] = useState(name)
+  useEffect(() => setShown(name), [name])
+
+  const save = async () => {
+    const v = value.trim()
+    setEditing(false)
+    if (!v || v === shown) return
+    setShown(v)
+    try {
+      await setDisplayName(v)
+    } catch {
+      setShown(name) // couldn't save: show what the account still says
+    }
+  }
+
+  if (editing)
+    return (
+      <input
+        autoFocus
+        value={value}
+        maxLength={30}
+        aria-label="Your name"
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => void save()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') {
+            setValue(shown)
+            setEditing(false)
+          }
+        }}
+        style={{ width: `${Math.max(value.length, 2) + 1}ch` }}
+        className="rounded-lg border-b-2 border-accent bg-transparent font-display outline-none"
+      />
+    )
+  return (
+    <button
+      onClick={() => {
+        setValue(shown)
+        setEditing(true)
+      }}
+      title="Change the name in your greeting"
+      className="underline decoration-dotted decoration-muted/40 underline-offset-[10px] transition-colors hover:decoration-ink"
+    >
+      {shown.toLowerCase()}
+    </button>
+  )
+}
+
 function Desk() {
   const data = useDeskData()
+  const { session } = useAuth()
+  const name = firstNameFrom(session?.user)
   return (
     <>
       <div className="flex items-end justify-between gap-6">
@@ -134,7 +191,15 @@ function Desk() {
           <p className="font-mono text-sm text-muted">
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
-          <h1 className="mt-1 font-display text-4xl sm:text-5xl">{greeting()}.</h1>
+          <h1 className="mt-1 break-words font-display text-4xl sm:text-5xl">
+            {greeting()}
+            {name && (
+              <>
+                , <GreetingName name={name} />
+              </>
+            )}
+            .
+          </h1>
         </div>
         <div className="hidden sm:block">{data && <Streak active={data.active} doneToday={data.doneToday} />}</div>
       </div>

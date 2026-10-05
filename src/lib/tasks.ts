@@ -5,6 +5,9 @@ export interface ExtractedTask {
   id: string
   text: string
   done: boolean
+  /** Stored on the checklist item itself, so every browser derives the same timestamps */
+  createdAt?: number
+  doneAt?: number
 }
 
 const textOf = (n: JSONContent): string =>
@@ -28,7 +31,13 @@ export function extractTasks(doc: JSONContent): ExtractedTask[] {
     if (n.type === 'taskItem' && n.attrs?.taskId) {
       // Only this item's own text — nested task items are tasks of their own.
       const own = (n.content ?? []).filter((c) => c.type !== 'taskList').map(textOf).join(' ')
-      out.push({ id: n.attrs.taskId, text: own.trim(), done: !!n.attrs.checked })
+      out.push({
+        id: n.attrs.taskId,
+        text: own.trim(),
+        done: !!n.attrs.checked,
+        createdAt: typeof n.attrs.createdAt === 'number' ? n.attrs.createdAt : undefined,
+        doneAt: typeof n.attrs.doneAt === 'number' ? n.attrs.doneAt : undefined,
+      })
     }
     ;(n.content ?? []).forEach(walk)
   }
@@ -36,28 +45,30 @@ export function extractTasks(doc: JSONContent): ExtractedTask[] {
   return out
 }
 
-/** Reconciles the tasks table with the checklist items in a note. Call inside a transaction. */
+/**
+ * Rebuilds this note's rows in the tasks table from its content. Call inside a transaction.
+ *
+ * Tasks are a pure function of the note, so they come out identical in every browser: timestamps come from the
+ * checklist item itself (or, for older items, from the note) — never from "when this browser first saw it".
+ */
 export async function syncTasks(noteId: string, projectId: string, doc: JSONContent) {
   const found = extractTasks(doc).filter((t) => t.text.length > 0)
-  const existing = new Map((await db.tasks.where('noteId').equals(noteId).toArray()).map((t) => [t.id, t]))
-  const now = Date.now()
+  const note = await db.notes.get(noteId)
+  const existing = new Set((await db.tasks.where('noteId').equals(noteId).primaryKeys()) as string[])
 
-  const next: Task[] = found.map((t, order) => {
-    const prev = existing.get(t.id)
-    return {
-      id: t.id,
-      noteId,
-      projectId,
-      text: t.text,
-      done: t.done,
-      order,
-      createdAt: prev?.createdAt ?? now,
-      doneAt: t.done ? (prev?.done ? prev.doneAt : now) : undefined,
-    }
-  })
+  const next: Task[] = found.map((t, order) => ({
+    id: t.id,
+    noteId,
+    projectId,
+    text: t.text,
+    done: t.done,
+    order,
+    createdAt: t.createdAt ?? note?.createdAt ?? 0,
+    doneAt: t.done ? (t.doneAt ?? note?.updatedAt ?? 0) : undefined,
+  }))
 
   const keep = new Set(next.map((t) => t.id))
-  const stale = [...existing.keys()].filter((id) => !keep.has(id))
+  const stale = [...existing].filter((id) => !keep.has(id))
   if (stale.length) await db.tasks.bulkDelete(stale)
   await db.tasks.bulkPut(next)
 }
@@ -73,7 +84,7 @@ export async function setTaskDone(taskId: string, done: boolean) {
     if (!note) return
     const doc = structuredClone(note.content)
     const walk = (n: JSONContent) => {
-      if (n.type === 'taskItem' && n.attrs?.taskId === taskId) n.attrs = { ...n.attrs, checked: done }
+      if (n.type === 'taskItem' && n.attrs?.taskId === taskId) n.attrs = { ...n.attrs, checked: done, doneAt: done ? Date.now() : null }
       ;(n.content ?? []).forEach(walk)
     }
     walk(doc)

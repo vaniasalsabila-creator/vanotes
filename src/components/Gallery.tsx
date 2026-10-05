@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { NoteImage } from '../lib/db'
-import { cx, useObjectUrl } from '../lib/utils'
+import { cx } from '../lib/utils'
+import { useImageSrc } from '../lib/useImageSrc'
 import { XIcon } from './Icons'
 import Portal from './Portal'
 
 function Thumb({ img, className, onOpen, onRemove }: { img: NoteImage; className?: string; onOpen: () => void; onRemove?: () => void }) {
-  const url = useObjectUrl(img.blob)
+  const url = useImageSrc(img)
   // an image you just added "develops" in, like a polaroid
   const fresh = Date.now() - img.createdAt < 3000
   return (
@@ -30,7 +31,7 @@ function Thumb({ img, className, onOpen, onRemove }: { img: NoteImage; className
 
 function Lightbox({ images, index, onClose }: { images: NoteImage[]; index: number; onClose: () => void }) {
   const [i, setI] = useState(index)
-  const url = useObjectUrl(images[i]?.blob)
+  const url = useImageSrc(images[i])
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {

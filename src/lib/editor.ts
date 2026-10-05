@@ -14,6 +14,9 @@ const IdTaskItem = TaskItem.extend({
         parseHTML: (el) => el.getAttribute('data-task-id'),
         renderHTML: (attrs) => (attrs.taskId ? { 'data-task-id': attrs.taskId } : {}),
       },
+      // When the item was added / ticked, kept on the item so every browser derives the same task timestamps.
+      createdAt: { default: null, keepOnSplit: false, rendered: false },
+      doneAt: { default: null, keepOnSplit: false, rendered: false },
     }
   },
 })
@@ -56,8 +59,16 @@ export function ensureTaskIds(editor: Editor) {
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name !== 'taskItem') return
     const id = node.attrs.taskId as string | null
-    if (!id || seen.has(id)) fixes.push({ pos, attrs: { ...node.attrs, taskId: uid() } })
-    else seen.add(id)
+    if (!id || seen.has(id)) {
+      // a brand-new item (typed, or split off by Enter)
+      fixes.push({ pos, attrs: { ...node.attrs, taskId: uid(), createdAt: Date.now(), doneAt: null } })
+      return
+    }
+    seen.add(id)
+    // keep "when it was ticked" in step with the checkbox
+    const checked = !!node.attrs.checked
+    if (checked && !node.attrs.doneAt) fixes.push({ pos, attrs: { ...node.attrs, doneAt: Date.now() } })
+    else if (!checked && node.attrs.doneAt) fixes.push({ pos, attrs: { ...node.attrs, doneAt: null } })
   })
   if (!fixes.length) return
   const tr = editor.state.tr

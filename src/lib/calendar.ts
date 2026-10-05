@@ -185,39 +185,3 @@ export async function createNoteFromEvent(event: CalEvent, projectId: string): P
   })
   return note
 }
-
-const DIVIDER_MIGRATION_KEY = 'vanotes:meeting-divider-v1'
-const textOf = (n: JSONContent) => (n.content ?? []).map((c) => c.text ?? '').join('')
-
-/**
- * One-time tidy-up: meeting notes started before dividers existed get one between the meeting
- * details and the notes area. Runs once per browser, never touches notes that already have a divider,
- * and leaves updatedAt alone so "recently touched" doesn't reshuffle.
- */
-export async function migrateMeetingDividers() {
-  try {
-    if (localStorage.getItem(DIVIDER_MIGRATION_KEY)) return
-  } catch {
-    return // can't remember that we ran, so don't risk re-adding a divider you deleted
-  }
-  const linked = await db.events.filter((e) => !!e.noteId).toArray()
-  for (const ev of linked) {
-    const note = await db.notes.get(ev.noteId!)
-    const blocks = note?.content.content
-    if (!note || !blocks?.length || blocks.some((b) => b.type === 'horizontalRule')) continue
-    // only notes that still start with the generated "Today, 3.00pm – 4.00pm" line
-    if (blocks[0].type !== 'paragraph' || !/(am|pm|all day)/i.test(textOf(blocks[0]))) continue
-    let last = 0
-    blocks.slice(0, 4).forEach((b, i) => {
-      if (b.type === 'paragraph' && /^(join|where): /.test(textOf(b))) last = i
-    })
-    const content = structuredClone(note.content)
-    content.content!.splice(last + 1, 0, { type: 'horizontalRule' })
-    await db.notes.update(note.id, { content })
-  }
-  try {
-    localStorage.setItem(DIVIDER_MIGRATION_KEY, '1')
-  } catch {
-    /* fine */
-  }
-}

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { flushPending } from './sync'
 
 interface AuthState {
   session: Session | null
@@ -29,7 +30,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthCtx.Provider value={state}>{children}</AuthCtx.Provider>
 }
 
-export const signOut = () => supabase?.auth.signOut()
+/**
+ * The first name used in the greeting: a name the user set (stored on their account, so it follows them to every
+ * device), otherwise the first part of their email address ("vania.salsabila@…" → "vania").
+ */
+export function firstNameFrom(user?: User | null): string {
+  const meta = String(user?.user_metadata?.name ?? user?.user_metadata?.full_name ?? '').trim()
+  if (meta) return meta.split(/\s+/)[0]
+  const local = (user?.email ?? '').split('@')[0]
+  const first = local.split(/[._\-+0-9]+/)[0]
+  return first.length >= 2 ? first : ''
+}
+
+/** Saves the name on the account (empty = go back to using the email). */
+export async function setDisplayName(name: string) {
+  const { error } = await supabase!.auth.updateUser({ data: { name: name.trim() } })
+  if (error) throw error
+}
+
+/** Lets unsent changes reach the account first, so signing out never loses anything. */
+export async function signOut() {
+  await flushPending(6000).catch(() => false)
+  await supabase?.auth.signOut()
+}
 
 /** Turns Supabase's error strings into something kind. */
 export function friendlyAuthError(message: string) {

@@ -18,6 +18,7 @@ export default function Login() {
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const [sentTo, setSentTo] = useState<string>()
@@ -39,7 +40,7 @@ export default function Login() {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: window.location.origin, ...(name.trim() && { data: { name: name.trim() } }) },
         })
         if (error) setError(friendlyAuthError(error.message))
         // With "Confirm email" on, no session comes back yet. An empty identities list means the email already exists.
@@ -89,7 +90,21 @@ export default function Login() {
                   {mode === 'signin' ? 'sign in to open notes saved to this account.' : 'one email and a password is all it takes.'}
                 </p>
 
-                <label className="mt-6 block text-sm">
+                {mode === 'signup' && (
+                  <label className="mt-6 block text-sm">
+                    your name <span className="text-muted">(optional — for the greeting)</span>
+                    <input
+                      type="text"
+                      autoComplete="given-name"
+                      maxLength={30}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="vania"
+                      className={input}
+                    />
+                  </label>
+                )}
+                <label className={mode === 'signup' ? 'mt-4 block text-sm' : 'mt-6 block text-sm'}>
                   email
                   <input
                     type="email"

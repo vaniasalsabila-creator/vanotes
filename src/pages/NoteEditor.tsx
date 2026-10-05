@@ -11,12 +11,13 @@ import MoveMenu from '../components/MoveMenu'
 import Gallery from '../components/Gallery'
 import { BackIcon, DrawCheck, ImageIcon, PlusIcon, TrashIcon } from '../components/Icons'
 
-async function persist(note: Note, title: string, doc: JSONContent) {
+/** Saves to the account (the local write is written straight through to Supabase). `stamp` identifies this save. */
+async function persist(note: Note, title: string, doc: JSONContent, stamp: number) {
   await db.transaction('rw', db.notes, db.tasks, async () => {
     // Read the project from the DB: the note may have been moved while it was open.
     const cur = await db.notes.get(note.id)
     if (!cur) return
-    await db.notes.update(note.id, { title, content: doc, bodyText: docToText(doc), updatedAt: Date.now() })
+    await db.notes.update(note.id, { title, content: doc, bodyText: docToText(doc), updatedAt: stamp })
     await syncTasks(note.id, cur.projectId, doc)
   })
 }
@@ -35,7 +36,9 @@ function Editor({ note }: { note: Note }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const images = useLiveQuery(() => db.images.where('noteId').equals(note.id).sortBy('order'), [note.id])
-  const liveNote = useLiveQuery(() => db.notes.get(note.id), [note.id])
+  // wrapped so "still loading" (undefined) differs from "deleted" ({ note: null })
+  const liveWrap = useLiveQuery(async () => ({ note: (await db.notes.get(note.id)) ?? null }), [note.id])
+  const liveNote = liveWrap?.note ?? undefined
   const projectId = liveNote?.projectId ?? note.projectId
   const project = useLiveQuery(() => db.projects.get(projectId), [projectId])
 
@@ -43,12 +46,19 @@ function Editor({ note }: { note: Note }) {
   const latest = useRef<{ title: string; doc: JSONContent }>({ title: note.title, doc: note.content })
   const dirty = useRef(false)
   const timer = useRef<number>(undefined)
+  // Versions of this note that *this window* wrote, so a change from another window/device can be told apart.
+  const ownStamps = useRef(new Set<number>([note.updatedAt]))
+  const seenStamp = useRef(note.updatedAt)
+  const deletedHere = useRef(false)
 
   const flush = useCallback(async () => {
     window.clearTimeout(timer.current)
     if (!dirty.current) return
     dirty.current = false
-    await persist(note, latest.current.title, latest.current.doc)
+    const stamp = Date.now()
+    ownStamps.current.add(stamp)
+    seenStamp.current = stamp
+    await persist(note, latest.current.title, latest.current.doc, stamp)
     if (!dirty.current) setStatus('saved')
   }, [note])
 
@@ -81,6 +91,31 @@ function Editor({ note }: { note: Note }) {
       },
     },
   })
+
+  // Follow the account: if this note is edited or deleted in another window or on another device, show that here.
+  useEffect(() => {
+    if (!liveWrap) return
+    const n = liveWrap.note
+    if (!n) {
+      if (!deletedHere.current) nav(`/p/${projectId}`, { replace: true }) // deleted elsewhere
+      return
+    }
+    if (n.updatedAt === seenStamp.current || ownStamps.current.has(n.updatedAt)) {
+      seenStamp.current = n.updatedAt
+      return
+    }
+    if (dirty.current) return // unsaved typing here wins; the next save overwrites (last write wins)
+    seenStamp.current = n.updatedAt
+    setTitle(n.title)
+    latest.current = { title: n.title, doc: n.content }
+    if (editor && JSON.stringify(editor.getJSON()) !== JSON.stringify(n.content)) {
+      const { from, to } = editor.state.selection
+      editor.commands.setContent(n.content, { emitUpdate: false })
+      const max = editor.state.doc.content.size
+      editor.commands.setTextSelection({ from: Math.min(from, max), to: Math.min(to, max) })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveWrap, editor])
 
   // Flush on tab close / navigation, and drop notes that were never filled in.
   useEffect(() => {
@@ -126,6 +161,7 @@ function Editor({ note }: { note: Note }) {
 
   const remove = async () => {
     if (!confirm('Delete this note?')) return
+    deletedHere.current = true
     await deleteNote(note.id)
     nav(`/p/${projectId}`, { replace: true })
   }

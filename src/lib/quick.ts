@@ -18,12 +18,6 @@ export async function ensureDump() {
   await db.projects.add({ id: DUMP_ID, name: DUMP_NAME, color: DUMP_COLOR, createdAt: now, updatedAt: now })
 }
 
-/** On startup: rename an existing dump folder without creating one that isn't there yet. */
-export async function migrateDumpName() {
-  const existing = await db.projects.get(DUMP_ID)
-  if (existing && existing.name !== DUMP_NAME) await db.projects.update(DUMP_ID, { name: DUMP_NAME })
-}
-
 const URL_RE = /(https?:\/\/[^\s<>"]+)/g
 const TASK_RE = /^\s*(?:[-*]\s*)?\[( |x|X)?\]\s+(.*)$/
 
@@ -45,7 +39,7 @@ export function textToDoc(text: string): JSONContent {
     if (m && m[2].trim()) {
       const item: JSONContent = {
         type: 'taskItem',
-        attrs: { checked: m[1]?.toLowerCase() === 'x', taskId: uid() },
+        attrs: { checked: m[1]?.toLowerCase() === 'x', taskId: uid(), createdAt: Date.now() },
         content: [{ type: 'paragraph', content: inline(m[2].trim()) }],
       }
       const last = content[content.length - 1]

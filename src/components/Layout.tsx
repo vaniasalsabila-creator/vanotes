@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { createProject, db } from '../lib/db'
 import { DUMP_ID } from '../lib/quick'
 import { signOut, useAuth } from '../lib/auth'
-import { useSyncStatus } from '../lib/sync-boot'
+import { useSyncInfo } from '../lib/sync'
 import ProjectDialog from './ProjectDialog'
 import Bump from './Bump'
 import Logo from './Logo'
@@ -31,7 +31,7 @@ function SidebarContent({
   const newProject = useNewProject()
   const { pathname } = useLocation()
   const { session } = useAuth()
-  const sync = useSyncStatus()
+  const sync = useSyncInfo()
   const wrap = useRef<HTMLDivElement>(null)
   const [pill, setPill] = useState<{ y: number; h: number } | null>(null)
 
@@ -169,7 +169,13 @@ function SidebarContent({
                 {session.user.email}
               </span>
               <span className="font-mono text-[10px] text-muted/80">
-                {sync === 'syncing' ? 'saving to account…' : sync === 'error' ? 'couldn’t sync — will retry' : 'saved to your account'}
+                {sync.state === 'saving'
+                  ? 'saving to your account…'
+                  : sync.state === 'offline'
+                    ? `offline · ${sync.pending ? `${sync.pending} change${sync.pending === 1 ? '' : 's'} waiting` : 'will reconnect'}`
+                    : sync.state === 'error'
+                      ? sync.message ?? 'couldn’t reach your account — retrying'
+                      : 'saved to your account'}
               </span>
             </span>
             <button onClick={() => void signOut()} className="shrink-0 text-xs text-accent hover:underline">

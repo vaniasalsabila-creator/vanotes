@@ -1,5 +1,14 @@
-import Dexie, { type Table } from 'dexie'
+import Dexie, { type Table, type Transaction } from 'dexie'
 import type { JSONContent } from '@tiptap/react'
+
+/*
+ * This file is the app's *view* of the data. Supabase is the source of truth.
+ *
+ * What lives here is a short-lived, per-window mirror of the signed-in account's rows (it exists so the UI can
+ * react instantly via useLiveQuery). It is rebuilt from Supabase every time a window starts, kept current by
+ * realtime + reconciliation (see sync.ts), and deleted on sign-out. Every local write is written through to
+ * Supabase; nothing here is ever treated as the authority.
+ */
 
 export interface Project {
   id: string
@@ -26,7 +35,10 @@ export interface Note {
 export interface NoteImage {
   id: string
   noteId: string
-  blob: Blob
+  /** Object path in the private `note-images` bucket: `<user id>/<image id>` */
+  path: string
+  /** Only present for an image added in this window that is still uploading; otherwise it's fetched by signed URL. */
+  blob?: Blob
   name: string
   order: number
   createdAt: number
@@ -51,7 +63,7 @@ export interface CalEvent {
   updatedAt?: number
 }
 
-/** Derived index of checklist items found in `Note.content`. Never edited directly. */
+/** Derived from the checklist items in `Note.content` (so it's identical everywhere). Never edited directly. */
 export interface Task {
   id: string
   noteId: string
@@ -64,21 +76,27 @@ export interface Task {
 }
 
 export type CloudTable = 'projects' | 'notes' | 'images' | 'events'
+export const CLOUD_TABLES: CloudTable[] = ['projects', 'notes', 'images', 'events']
 
-export interface OutboxItem {
-  seq?: number
-  table: CloudTable
-  op: 'upsert' | 'delete'
-  recordId: string
+/** sync.ts plugs in here (db.ts can't import it — that would be circular). */
+export const syncPort = {
+  /** A local write to this row has started and isn't confirmed by the server yet. */
+  mark: (_table: CloudTable, _id: string): void => {},
+  /** That write was abandoned (the transaction aborted). */
+  unmark: (_table: CloudTable, _id: string): void => {},
+  /** The local write committed — send it to Supabase. */
+  enqueue: (_table: CloudTable, _op: 'upsert' | 'delete', _id: string): void => {},
 }
 
-class VaNotesDB extends Dexie {
+type RemoteTx = Transaction & { __remote?: boolean }
+const isRemote = (tx?: Transaction) => !!(tx as RemoteTx | undefined)?.__remote
+
+class CacheDB extends Dexie {
   projects!: Table<Project, string>
   notes!: Table<Note, string>
   images!: Table<NoteImage, string>
   tasks!: Table<Task, string>
   events!: Table<CalEvent, string>
-  outbox!: Table<OutboxItem, number>
 
   constructor(name: string) {
     super(name)
@@ -87,165 +105,128 @@ class VaNotesDB extends Dexie {
       notes: 'id, projectId, createdAt',
       images: 'id, noteId',
       tasks: 'id, noteId, projectId, done',
-    })
-    this.version(2).stores({
       events: 'id, start, sourceName',
     })
-    this.version(3).stores({
-      outbox: '++seq',
-    })
-    wireCloudHooks(this)
+    wireWriteThrough(this)
   }
 }
 
-const CLOUD: CloudTable[] = ['projects', 'notes', 'images', 'events']
-
-let remoteDepth = 0
-export const isApplyingRemote = () => remoteDepth > 0
-export async function applyingRemote<T>(fn: () => Promise<T>): Promise<T> {
-  remoteDepth++
-  try {
-    return await fn()
-  } finally {
-    remoteDepth--
+/**
+ * Every write the app makes locally is written through to Supabase. Writes applied *from* Supabase
+ * run in a transaction flagged as remote and are skipped here. The flag lives on the transaction — not a global —
+ * so a user's edit can never be mistaken for a server update while one is being applied.
+ */
+function wireWriteThrough(d: CacheDB) {
+  const localWrite = (table: CloudTable, op: 'upsert' | 'delete', id: string, tx: Transaction) => {
+    syncPort.mark(table, id)
+    tx.on('complete', () => syncPort.enqueue(table, op, id))
+    tx.on('abort', () => syncPort.unmark(table, id))
   }
-}
 
-function enqueue(table: CloudTable, op: 'upsert' | 'delete', recordId: string) {
-  if (isApplyingRemote()) return
-  void instance.outbox.add({ table, op, recordId }).then(() => {
-    window.dispatchEvent(new Event('vanotes:outbox'))
-  })
-}
-
-function wireCloudHooks(d: VaNotesDB) {
-  for (const table of CLOUD) {
-    const t = d[table]
-    t.hook('creating', function (_pk, obj) {
-      const skip = isApplyingRemote()
-      const row = obj as { id: string; updatedAt?: number }
-      if (typeof row.updatedAt !== 'number') row.updatedAt = Date.now()
-      this.onsuccess = () => {
-        if (!skip) enqueue(table, 'upsert', row.id)
-      }
+  for (const table of CLOUD_TABLES) {
+    const t = d[table] as unknown as Table<{ id: string; updatedAt?: number }, string>
+    t.hook('creating', (_pk, obj, tx) => {
+      if (isRemote(tx)) return
+      if (typeof obj.updatedAt !== 'number') obj.updatedAt = Date.now()
+      localWrite(table, 'upsert', obj.id, tx)
     })
-    t.hook('updating', function (mods, pk, obj) {
-      const skip = isApplyingRemote()
-      this.onsuccess = () => {
-        if (!skip) enqueue(table, 'upsert', String(pk ?? (obj as { id: string }).id))
-      }
-      if (skip || 'updatedAt' in mods) return
+    t.hook('updating', (mods, pk, _obj, tx) => {
+      if (isRemote(tx)) return
+      const changed = Object.keys(mods as object)
+      if (!changed.length) return // nothing actually changed: don't touch the server
+      localWrite(table, 'upsert', String(pk), tx)
+      if (changed.includes('updatedAt')) return
       return { updatedAt: Date.now() }
     })
-    t.hook('deleting', function (pk) {
-      const skip = isApplyingRemote()
-      this.onsuccess = () => {
-        if (!skip) enqueue(table, 'delete', String(pk))
-      }
+    t.hook('deleting', (pk, _obj, tx) => {
+      if (isRemote(tx)) return
+      localWrite(table, 'delete', String(pk), tx)
     })
   }
 }
 
-let instance = new VaNotesDB('vanotes-guest')
+// ---- which window / which account this mirror belongs to ---------------------------------------------------------
 
-/** Always the current user's IndexedDB. Swaps on sign-in so two accounts never share a browser store. */
-export const db: VaNotesDB = new Proxy({} as VaNotesDB, {
+/**
+ * Each browser window gets its own private mirror (a fresh database per page load), so two windows can never
+ * corrupt each other's view and "window A" and "window B" are genuinely independent clients of the same account.
+ */
+const WINDOW_ID = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+const CACHE_PREFIX = 'vn-cache-'
+const cacheName = (userId: string) => `${CACHE_PREFIX}${userId}-${WINDOW_ID}`
+
+// Held for as long as this page is open; lets a later window tell which mirrors are abandoned.
+if (typeof navigator !== 'undefined' && navigator.locks) {
+  void navigator.locks.request(`vn-window-${WINDOW_ID}`, () => new Promise<void>(() => {}))
+}
+
+let instance = new CacheDB('vn-no-session')
+let activeUserId: string | null = null
+
+export const getActiveUserId = () => activeUserId
+
+/** Always the current window's mirror. Swapped on sign-in/out. */
+export const db: CacheDB = new Proxy({} as CacheDB, {
   get(_t, prop) {
     const value = Reflect.get(instance, prop, instance) as unknown
     return typeof value === 'function' ? (value as (...a: never[]) => unknown).bind(instance) : value
   },
 })
 
-const LEGACY_FLAG = 'vanotes:legacy-migrated'
+export type Cache = CacheDB
+export const currentCache = () => instance
 
-async function copyLegacyIfNeeded(userDb: VaNotesDB) {
+export async function openCache(userId: string) {
+  const name = cacheName(userId)
+  if (activeUserId === userId && instance.name === name && instance.isOpen()) return
+  const next = new CacheDB(name)
+  await next.open()
+  const prev = instance
+  instance = next
+  activeUserId = userId
+  prev.close()
+}
+
+/** Deletes this window's mirror (sign-out). */
+export async function wipeCache() {
+  const name = instance.name
+  instance.close()
+  instance = new CacheDB('vn-no-session')
+  activeUserId = null
   try {
-    if (localStorage.getItem(LEGACY_FLAG)) return
+    await Dexie.delete(name)
   } catch {
-    return
+    /* it will be cleaned up by the next window */
   }
-  const [notes, projects] = await Promise.all([userDb.notes.count(), userDb.projects.count()])
-  if (notes || projects) {
-    try {
-      localStorage.setItem(LEGACY_FLAG, '1')
-    } catch {
-      /* ignore */
-    }
-    return
-  }
+}
 
-  const legacy = new VaNotesDB('vanotes')
+/** Removes mirrors left behind by windows that were closed or reloaded. */
+export async function cleanStaleCaches() {
   try {
-    await legacy.open()
-    const [lp, ln, li, lt, le] = await Promise.all([
-      legacy.projects.toArray(),
-      legacy.notes.toArray(),
-      legacy.images.toArray(),
-      legacy.tasks.toArray(),
-      legacy.events.toArray(),
-    ])
-    if (!lp.length && !ln.length && !le.length) return
-    await applyingRemote(async () => {
-      await userDb.transaction('rw', userDb.projects, userDb.notes, userDb.images, userDb.tasks, userDb.events, async () => {
-        if (lp.length) await userDb.projects.bulkPut(lp)
-        if (ln.length) await userDb.notes.bulkPut(ln)
-        if (li.length) await userDb.images.bulkPut(li)
-        if (lt.length) await userDb.tasks.bulkPut(lt)
-        if (le.length) await userDb.events.bulkPut(le)
+    const names = (await Dexie.getDatabaseNames()).filter((n) => n.startsWith(CACHE_PREFIX))
+    for (const n of names) {
+      const owner = n.slice(n.lastIndexOf('-') + 1)
+      if (owner === WINDOW_ID) continue
+      if (!navigator.locks) continue // can't tell whether it's in use; leave it
+      await navigator.locks.request(`vn-window-${owner}`, { ifAvailable: true }, async (lock) => {
+        if (lock) await Dexie.delete(n)
       })
-    })
-    const jobs: OutboxItem[] = [
-      ...lp.map((r) => ({ table: 'projects' as const, op: 'upsert' as const, recordId: r.id })),
-      ...ln.map((r) => ({ table: 'notes' as const, op: 'upsert' as const, recordId: r.id })),
-      ...li.map((r) => ({ table: 'images' as const, op: 'upsert' as const, recordId: r.id })),
-      ...le.map((r) => ({ table: 'events' as const, op: 'upsert' as const, recordId: r.id })),
-    ]
-    if (jobs.length) await userDb.outbox.bulkAdd(jobs)
-    try {
-      localStorage.setItem(LEGACY_FLAG, '1')
-    } catch {
-      /* ignore */
     }
-  } finally {
-    legacy.close()
+  } catch {
+    /* best effort */
   }
 }
 
-let openGen = 0
-let opening: Promise<void> | null = null
-
-export async function openUserDb(userId: string) {
-  const name = `vanotes-${userId}`
-  if (instance.name === name && instance.isOpen()) return
-  if (opening) return opening
-  opening = (async () => {
-    const gen = ++openGen
-    const next = new VaNotesDB(name)
-    await next.open()
-    if (gen !== openGen) {
-      next.close()
-      return
-    }
-    const prev = instance
-    instance = next
-    prev.close()
-    await copyLegacyIfNeeded(next)
-  })().finally(() => {
-    opening = null
+/** Runs `fn` as a change that came *from* Supabase: it is stored here but never written back. */
+export function runAsRemote<T>(fn: () => Promise<T>): Promise<T> {
+  const d = instance
+  return d.transaction('rw', [d.projects, d.notes, d.images, d.tasks, d.events], async (tx) => {
+    ;(tx as RemoteTx).__remote = true
+    return fn()
   })
-  return opening
 }
 
-export async function takeOutbox() {
-  const rows = await instance.outbox.orderBy('seq').toArray()
-  const last = new Map<string, OutboxItem>()
-  for (const row of rows) last.set(`${row.table}:${row.recordId}`, row)
-  return { compacted: [...last.values()], seqs: rows.map((r) => r.seq!).filter((n) => Number.isFinite(n)) }
-}
-
-export async function clearOutbox(seqs: number[]) {
-  if (seqs.length) await instance.outbox.bulkDelete(seqs)
-}
+// ---- app-level helpers ---------------------------------------------------------------------------------------------
 
 export const uid = () => crypto.randomUUID()
 
@@ -307,19 +288,26 @@ export async function deleteNote(id: string) {
 }
 
 export async function addImages(noteId: string, files: File[]) {
+  const user = activeUserId
+  if (!user) return
   const existing = await db.images.where('noteId').equals(noteId).count()
   const now = Date.now()
   await db.images.bulkAdd(
     files
       .filter((f) => f.type.startsWith('image/'))
-      .map((f, i) => ({
-        id: uid(),
-        noteId,
-        blob: f,
-        name: f.name || 'pasted image',
-        order: existing + i,
-        createdAt: now,
-      })),
+      .map((f, i) => {
+        const id = uid()
+        return {
+          id,
+          noteId,
+          path: `${user}/${id}`,
+          blob: f,
+          name: f.name || 'pasted image',
+          order: existing + i,
+          createdAt: now,
+          updatedAt: now,
+        }
+      }),
   )
 }
 

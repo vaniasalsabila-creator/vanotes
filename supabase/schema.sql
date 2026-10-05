@@ -1,6 +1,10 @@
--- vanotes cloud tables. Run this once in the Supabase SQL editor
+-- vanotes cloud tables. Run this in the Supabase SQL editor
 -- (Project → SQL → New query → paste → Run).
--- It is safe to run again: everything is created only if missing.
+-- It is safe to run again: everything is created only if missing. If you ran an earlier version of this file,
+-- run this one too: it adds the Realtime section at the bottom (so other windows update instantly).
+--
+-- Supabase is the source of truth for every signed-in account: all notes, projects, images and calendar events are
+-- stored here, tied to the account's user id and protected by row-level security. Browsers only hold a temporary view.
 
 -- ---------- tables ----------
 
@@ -122,3 +126,26 @@ begin
       using (bucket_id = 'note-images' and (storage.foldername(name))[1] = auth.uid()::text);
   end if;
 end $$;
+
+-- ---------- realtime ----------
+-- Lets every open window of an account hear about changes immediately (changes arrive only to the account that owns
+-- the row — row-level security applies). Without this, windows still catch up, just every ~15 seconds instead of instantly.
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['projects', 'notes', 'events', 'note_images']
+  loop
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    exception
+      when duplicate_object then null; -- already enabled
+      when undefined_object then null; -- publication missing (not a Supabase project): skip
+    end;
+  end loop;
+end $$;
+
+-- Optional housekeeping: deleted items are kept as "tombstones" (deleted_at is set) so that every window learns about
+-- a delete. If you ever want to tidy old ones, run something like:
+--   delete from public.notes where deleted_at is not null and deleted_at < (extract(epoch from now() - interval '90 days') * 1000);
